@@ -138,7 +138,7 @@ class Niveau:
 		
 		self.textures = tex
 		
-		self.taille_sprite = 32
+		self.taille_sprite = 25
 		
 		self.world_block = []
 		

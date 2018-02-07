@@ -10,9 +10,9 @@ clock = pygame.time.Clock()
 
 #all textures about the environment:
 WORLD_IMG = [
-	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/grass.png"),(32,32)),#GRASS
-	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/dirt.png"),(32,32)),#DIRT
-	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/stone.png"),(32,32)),#STONE
+	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/grass.png"),(25,25)),#GRASS
+	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/dirt.png"),(25,25)),#DIRT
+	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/stone.png"),(25,25)),#STONE
 ]
 #all futures and currents levels:
 LEVELS = [
