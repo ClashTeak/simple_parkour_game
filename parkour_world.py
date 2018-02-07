@@ -13,6 +13,7 @@ WORLD_IMG = [
 	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/grass.png"),(25,25)),#GRASS
 	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/dirt.png"),(25,25)),#DIRT
 	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/stone.png"),(25,25)),#STONE
+	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/coin.png"),(25,25)),#COIN
 ]
 #all futures and currents levels:
 LEVELS = [
@@ -36,6 +37,10 @@ COLORS = [
 	pygame.Color(190,0,255), #PURPLE
 	pygame.Color(120,120,120), #GREY
 ]
+#all FONTS
+FONTS = [
+	pygame.font.SysFont("arial",35),
+]
 
 
 niveau = Niveau(LEVELS[0],WORLD_IMG)
@@ -55,6 +60,10 @@ total_level_width  = len(niveau.structure[0])*niveau.taille_sprite
 total_level_height = len(niveau.structure)*niveau.taille_sprite
 camera = Camera(complex_camera, total_level_width, total_level_height)
 
+def coins_sign(coins,font,color,surface,img):
+	affiche_coins = font.render(str(coins),True,color)
+	surface.blit(affiche_coins,(60,10))
+	surface.blit(img,(20,20))
 
 #Main game loop
 while while_bool:
@@ -81,6 +90,7 @@ while while_bool:
 			if event.key == K_DOWN:
 				down = False
 	
+	
 	window.blit(background_color,(0,0))
 	
 	camera.update(joueur)
@@ -88,7 +98,10 @@ while while_bool:
 	
 	for b in niveau.world_block:
 		window.blit(b.image,camera.apply(b))
+	
 	window.blit(joueur.image,camera.apply(joueur))
+	
+	coins_sign(joueur.coins,FONTS[0],COLORS[0],window,WORLD_IMG[3])
 	
 	pygame.display.update()
 	clock.tick(60)

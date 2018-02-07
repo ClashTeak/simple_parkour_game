@@ -58,61 +58,65 @@ def complex_camera(camera, target_rect):
 
 #PLAYER CLASS
 class Player(Entity):
-    def __init__(self, x, y,size):
-        Entity.__init__(self)
-        self.xvel = 0
-        self.yvel = 0
-        self.onGround = False
-        self.image = pygame.Surface((size,size))
-        self.image.fill(Color("#0000FF"))
-        self.image.convert()
-        self.rect = Rect(x, y, size, size)
+	def __init__(self, x, y,size):
+		Entity.__init__(self)
+		self.xvel = 0
+		self.yvel = 0
+		self.coins = 0
+		self.onGround = False
+		self.image = pygame.Surface((size,size))
+		self.image.fill(Color("#0000FF"))
+		self.image.convert()
+		self.rect = Rect(x, y, size, size)
 
-    def update(self, up, down, left, right, running, platforms):
-        if up:
-            # only jump if on the ground
-            if self.onGround: self.yvel -= 8
-        if down:
-            pass
-        if running:
-            self.xvel = 12
-        if left:
-            self.xvel = -5
-        if right:
-            self.xvel = 5
-        if not self.onGround:
-            # only accelerate with gravity if in the air
-            self.yvel += 0.3
-            # max falling speed
-            if self.yvel > 100: self.yvel = 100
-        if not(left or right):
-            self.xvel = 0
-        # increment in x direction
-        self.rect.left += self.xvel
-        # do x-axis collisions
-        self.collide(self.xvel, 0, platforms)
-        # increment in y direction
-        self.rect.top += self.yvel
-        # assuming we're in the air
-        self.onGround = False;
-        # do y-axis collisions
-        self.collide(0, self.yvel, platforms)
-
-    def collide(self, xvel, yvel, platforms):
-        for p in platforms:
-            if pygame.sprite.collide_rect(self, p):
-                if xvel > 0:
-                    self.rect.right = p.rect.left
-                    print ("collide right")
-                if xvel < 0:
-                    self.rect.left = p.rect.right
-                    print ("collide left")
-                if yvel > 0:
-                    self.rect.bottom = p.rect.top
-                    self.onGround = True
-                    self.yvel = 0
-                if yvel < 0:
-                    self.rect.top = p.rect.bottom
+	def update(self, up, down, left, right, running, platforms):
+		if up:
+			# only jump if on the ground
+			if self.onGround: self.yvel -= 8
+		if down:
+			pass
+		if running:
+			self.xvel = 12
+		if left:
+			self.xvel = -5
+		if right:
+			self.xvel = 5
+		if not self.onGround:
+			# only accelerate with gravity if in the air
+			self.yvel += 0.3
+			# max falling speed
+			if self.yvel > 100: self.yvel = 100
+		if not(left or right):
+			self.xvel = 0
+		# increment in x direction
+		self.rect.left += self.xvel
+		# do x-axis collisions
+		self.collide(self.xvel, 0, platforms)
+		# increment in y direction
+		self.rect.top += self.yvel
+		# assuming we're in the air
+		self.onGround = False;
+		# do y-axis collisions
+		self.collide(0, self.yvel, platforms)
+		
+	def collide(self, xvel, yvel, colliders):
+		for p in colliders:
+			if pygame.sprite.collide_rect(self, p):
+				if p.name == "block":
+					if xvel > 0:
+						self.rect.right = p.rect.left
+					if xvel < 0:
+						self.rect.left = p.rect.right
+					if yvel > 0:
+						self.rect.bottom = p.rect.top
+						self.onGround = True
+						self.yvel = 0
+					if yvel < 0:
+						self.rect.top = p.rect.bottom
+				elif p.name == "coin":
+					self.coins += 1
+					colliders.remove(p)
+                    
 
 
 
@@ -122,10 +126,11 @@ class Player(Entity):
 #block object class
 class Block(Entity):
 	
-	def __init__(self,x,y,img,size):
+	def __init__(self,x,y,img,size,name):
 		Entity.__init__(self)
 		self.image = img
 		self.rect = Rect(x, y, size, size)
+		self.name = name
 
 
 #World Manager
@@ -174,10 +179,12 @@ class Niveau:
 				x = num_case * self.taille_sprite
 				y = num_ligne * self.taille_sprite
 				if sprite == '1':		   
-					self.world_block.append(Block(x,y,self.textures[0],self.taille_sprite))
+					self.world_block.append(Block(x,y,self.textures[0],self.taille_sprite,"block"))
 				if sprite == '2':
-					self.world_block.append(Block(x,y,self.textures[1],self.taille_sprite))
+					self.world_block.append(Block(x,y,self.textures[1],self.taille_sprite,"block"))
 				if sprite == '3':
-					self.world_block.append(Block(x,y,self.textures[2],self.taille_sprite))
+					self.world_block.append(Block(x,y,self.textures[2],self.taille_sprite,"block"))
+				if sprite == 'c':
+					self.world_block.append(Block(x,y,self.textures[3],self.taille_sprite,"coin"))
 				num_case += 1
 			num_ligne += 1
