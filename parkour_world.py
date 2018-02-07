@@ -4,19 +4,17 @@ from parkour_world_class import *
 
 pygame.init()
 
-xWmax = 800
-yWmax  = 600
-window = pygame.display.set_mode((xWmax,yWmax))
+
+window = pygame.display.set_mode(DISPLAY, FLAGS, DEPTH)
 clock = pygame.time.Clock()
 
+#all textures about the environment:
 WORLD_IMG = [
-	pygame.image.load("Data/Pictures/world_textures/grass.png"),#HERBE
-	pygame.image.load("Data/Pictures/world_textures/dirt.png"),#TERRE
-	pygame.image.load("Data/Pictures/world_textures/stone.png"),#PIERRE
+	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/grass.png"),(32,32)),#GRASS
+	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/dirt.png"),(32,32)),#DIRT
+	pygame.transform.scale(pygame.image.load("Data/Pictures/world_textures/stone.png"),(32,32)),#STONE
 ]
-PLAYER_IMG = [
-	pygame.image.load("Data/Pictures/Player/player.png")#IDLE
-]
+#all futures and currents levels:
 LEVELS = [
 	"parkour_world_lvl1",
 	"parkour_world_lvl2",
@@ -24,6 +22,7 @@ LEVELS = [
 	"parkour_world_lvl4",
 	"parkour_world_lvl5",
 ]
+#all colors:
 COLORS = [
 	pygame.Color(255,255,255), #WHITE
 	pygame.Color(0,0,0), #BLACK
@@ -38,18 +37,26 @@ COLORS = [
 	pygame.Color(120,120,120), #GREY
 ]
 
+
 niveau = Niveau(LEVELS[0],WORLD_IMG)
-joueur = Joueur(420,250,PLAYER_IMG[0],0.2)
+niveau.read()
+niveau.afficher()
 
+up = down = left = right = running = False
 
-background_color = pygame.Surface((xWmax,yWmax))
+joueur = Player(50,50,niveau.taille_sprite)
+
+background_color = pygame.Surface((DISPLAY))
 background_color.fill(COLORS[5])
 
 while_bool = True
 
-niveau.read()
-niveau.afficher()
+total_level_width  = len(niveau.structure[0])*niveau.taille_sprite
+total_level_height = len(niveau.structure)*niveau.taille_sprite
+camera = Camera(complex_camera, total_level_width, total_level_height)
 
+
+#Main game loop
 while while_bool:
 	for event in pygame.event.get():
 		if event.type == QUIT:
@@ -57,34 +64,31 @@ while while_bool:
 			sys.exit()
 		if event.type == KEYDOWN:
 			if event.key == K_RIGHT:
-				joueur.xs = 2
+				right = True
 			if event.key == K_LEFT:
-				joueur.xs = -2
+				left = True
 			if event.key == K_UP:
-				if joueur.have_gravity:
-					joueur.jump()
-				else:
-					joueur.ys = -2
+				up = True
 			if event.key == K_DOWN:
-				if joueur.have_gravity == False:
-					joueur.ys = 2
-					
+				down = True
 		elif event.type == KEYUP:
-			if event.key == K_RIGHT or event.key == K_LEFT:
-				joueur.xs = 0
-			if event.key == K_UP or event.key == K_DOWN:
-				if joueur.have_gravity == False:
-					joueur.ys = 0
-	
-	
-	joueur.update(niveau.print_block)
+			if event.key == K_RIGHT:
+				right = False
+			if event.key == K_LEFT:
+				left = False
+			if event.key == K_UP:
+				up = False
+			if event.key == K_DOWN:
+				down = False
 	
 	window.blit(background_color,(0,0))
-	niveau.update(joueur)
-	for b in niveau.print_block:
-		window.blit(b.image,b.rect)
 	
-	joueur.draw(window)
+	camera.update(joueur)
+	joueur.update(up,down,left,right,running,niveau.world_block)
+	
+	for b in niveau.world_block:
+		window.blit(b.image,camera.apply(b))
+	window.blit(joueur.image,camera.apply(joueur))
 	
 	pygame.display.update()
 	clock.tick(60)

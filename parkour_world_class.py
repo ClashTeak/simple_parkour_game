@@ -1,93 +1,134 @@
 import pygame, sys , os , random
 from pygame.locals import *
+from math import cos,sin,pi
 
 
 pygame.init()
-				
+
+WIN_WIDTH = 800
+WIN_HEIGHT = 640
+HALF_WIDTH = int(WIN_WIDTH / 2)
+HALF_HEIGHT = int(WIN_HEIGHT / 2)
+
+DISPLAY = (WIN_WIDTH, WIN_HEIGHT)
+DEPTH = 32
+FLAGS = 0
+CAMERA_SLACK = 30
 
 
-class Joueur(pygame.sprite.Sprite):
-	
-	def __init__(self,x ,y,image,velocity):
-		self.x = x
-		self.y = y
-		self.xs, self.ys = 0,0
-		
-		self.have_gravity = True
-		self.velocity = velocity
-		
-		self.isGrounded = False
-		self.isJumping = False
-		
-		self.try_collide = []
-		
-		self.image = image
-		
-		self.rect = (int(self.x),int(self.y),self.image.get_width(),self.image.get_height())
-		self.mask = pygame.mask.from_surface(self.image)
-	
-	def update(self,b_l):
-		self.rect = (int(self.x),int(self.y),self.image.get_width(),self.image.get_height())
-		
-		
-		for b in b_l:
-			if b.x < self.x + 21 and b.x > self.x - 21:
-				if b.y < self.y + 21 and b.y > self.y - 21:
-					if b not in self.try_collide:
-						self.try_collide.append(b)
-				else:
-					if b in self.try_collide:
-						self.try_collide.remove(b)
-			else:
-				if b in self.try_collide:
-					self.try_collide.remove(b)
-		
-		if len(self.try_collide) != 0:
-			for b in self.try_collide:
-				if pygame.sprite.collide_mask(self,b) == False:
-					self.isGrounded = False
-				elif pygame.sprite.collide_mask(self,b):
-					self.isGrounded = True
-					self.y = b.y - 20
-		else:
-			self.isGrounded = False
-			
-		print(len(self.try_collide))
-		
-		if self.isGrounded == False:
-			if self.have_gravity:
-				self.ys += self.velocity
-		
-		if self.isGrounded:
-			self.y -= self.ys
-			self.ys = 0
-			
-		self.y += self.ys
-		self.x += self.xs
-		
-		self.mask = pygame.mask.from_surface(self.image)
-	
-	def jump(self):
-		if self.isGrounded:
-			self.isJumping = True
-			self.isGrounded = False
-			self.ys = -5
-			self.y -= 5
-	
-	def draw(self,surface):
-		surface.blit(self.image,self.rect)
-		
+
+class Entity(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
 
 
-class Block(pygame.sprite.Sprite):
+
+# CAMERA CLASS.
+class Camera(object):
+    def __init__(self, camera_func, width, height):
+        self.camera_func = camera_func
+        self.state = Rect(0, 0, width, height)
+
+    def apply(self, target):
+        return target.rect.move(self.state.topleft)
+
+    def update(self, target):
+        self.state = self.camera_func(self.state, target.rect)
+
+
+# ALL KIND OF CAMERA.
+def simple_camera(camera, target_rect):
+    l, t, _, _ = target_rect
+    _, _, w, h = camera
+    return Rect(-l+HALF_WIDTH, -t+HALF_HEIGHT, w, h)
+
+def complex_camera(camera, target_rect):
+    l, t, _, _ = target_rect
+    _, _, w, h = camera
+    l, t, _, _ = -l+HALF_WIDTH, -t+HALF_HEIGHT, w, h
+
+    l = min(0, l)                           # stop scrolling at the left edge
+    l = max(-(camera.width-WIN_WIDTH), l)   # stop scrolling at the right edge
+    t = max(-(camera.height-WIN_HEIGHT), t) # stop scrolling at the bottom
+    t = min(0, t)                           # stop scrolling at the top
+    return Rect(l, t, w, h)
+    
+
+
+
+#PLAYER CLASS
+class Player(Entity):
+    def __init__(self, x, y,size):
+        Entity.__init__(self)
+        self.xvel = 0
+        self.yvel = 0
+        self.onGround = False
+        self.image = pygame.Surface((size,size))
+        self.image.fill(Color("#0000FF"))
+        self.image.convert()
+        self.rect = Rect(x, y, size, size)
+
+    def update(self, up, down, left, right, running, platforms):
+        if up:
+            # only jump if on the ground
+            if self.onGround: self.yvel -= 8
+        if down:
+            pass
+        if running:
+            self.xvel = 12
+        if left:
+            self.xvel = -5
+        if right:
+            self.xvel = 5
+        if not self.onGround:
+            # only accelerate with gravity if in the air
+            self.yvel += 0.3
+            # max falling speed
+            if self.yvel > 100: self.yvel = 100
+        if not(left or right):
+            self.xvel = 0
+        # increment in x direction
+        self.rect.left += self.xvel
+        # do x-axis collisions
+        self.collide(self.xvel, 0, platforms)
+        # increment in y direction
+        self.rect.top += self.yvel
+        # assuming we're in the air
+        self.onGround = False;
+        # do y-axis collisions
+        self.collide(0, self.yvel, platforms)
+
+    def collide(self, xvel, yvel, platforms):
+        for p in platforms:
+            if pygame.sprite.collide_rect(self, p):
+                if xvel > 0:
+                    self.rect.right = p.rect.left
+                    print ("collide right")
+                if xvel < 0:
+                    self.rect.left = p.rect.right
+                    print ("collide left")
+                if yvel > 0:
+                    self.rect.bottom = p.rect.top
+                    self.onGround = True
+                    self.yvel = 0
+                if yvel < 0:
+                    self.rect.top = p.rect.bottom
+
+
+
+
+#WORLD CLASS :
+
+#block object class
+class Block(Entity):
 	
-	def __init__(self,x,y,img):
-		self.x,self.y = x,y
+	def __init__(self,x,y,img,size):
+		Entity.__init__(self)
 		self.image = img
-		self.mask = pygame.mask.from_surface(self.image)
-		self.rect = (int(x),int(y),self.image.get_width(),self.image.get_height())
+		self.rect = Rect(x, y, size, size)
 
 
+#World Manager
 class Niveau:
 	"""Classe permettant de créer un niveau"""
 	
@@ -97,10 +138,9 @@ class Niveau:
 		
 		self.textures = tex
 		
-		self.taille_sprite = 20
+		self.taille_sprite = 32
 		
 		self.world_block = []
-		self.print_block = []
 		
 	def read(self):
 		""" Méthode permettant de lire 
@@ -110,10 +150,9 @@ class Niveau:
 		"""
 		with open(self.fichier, "r") as fichier:
 			structure_niveau = []
-			
+			#self.array_world = fichier.read()
 			for ligne in fichier:
 				ligne_niveau = []
-				
 				for sprite in ligne:
 					if sprite != '\n':
 						ligne_niveau.append(sprite)
@@ -135,25 +174,10 @@ class Niveau:
 				x = num_case * self.taille_sprite
 				y = num_ligne * self.taille_sprite
 				if sprite == '1':		   
-					self.world_block.append(Block(x,y,self.textures[0]))
+					self.world_block.append(Block(x,y,self.textures[0],self.taille_sprite))
 				if sprite == '2':
-					self.world_block.append(Block(x,y,self.textures[1]))
+					self.world_block.append(Block(x,y,self.textures[1],self.taille_sprite))
 				if sprite == '3':
-					self.world_block.append(Block(x,y,self.textures[2]))
+					self.world_block.append(Block(x,y,self.textures[2],self.taille_sprite))
 				num_case += 1
 			num_ligne += 1
-	
-	def update(self,joueur):
-		
-		for b in self.world_block:
-			if b.x < joueur.x + 700 and b.x > joueur.x - 700:
-				if b.y < joueur.y + 500 and b.y > joueur.y - 500:
-					if b not in self.print_block:
-						self.print_block.append(b)
-				else:
-					if b in self.print_block:
-						self.print_block.remove(b)
-			else:
-				if b in self.print_block:
-					self.print_block.remove(b)
-			
