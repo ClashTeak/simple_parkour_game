@@ -52,12 +52,12 @@ class HUD(object):
 		self.font = font
 	
 	def health_bar(self,color1,color2,hp,maxhp):
-		pygame.draw.rect(self.surface,color1,(self.width-(self.width-20),self.height-(self.height-15),self.width/3.2,self.height/42))
-		pygame.draw.rect(self.surface,color2,(self.width-(self.width-20),self.height-(self.height-15),hp/(maxhp/(self.width/3.2)),self.height/42))
+		pygame.draw.rect(self.surface,color1,(self.width-(self.width-20),self.height-(self.height-(self.height/42)),self.width/3.2,self.height/42))
+		pygame.draw.rect(self.surface,color2,(self.width-(self.width-20),self.height-(self.height-(self.height/42)),hp/(maxhp/(self.width/3.2)),self.height/42))
 	
 	def mana_bar(self,color1,color2,mana,maxmana):
-		pygame.draw.rect(self.surface,color1,(self.width-(self.width-20),self.height-(self.height-40),self.width/3.2,self.height/42))
-		pygame.draw.rect(self.surface,color2,(self.width-(self.width-20),self.height-(self.height-40),mana/(maxmana/(self.width/3.2)),self.height/42))
+		pygame.draw.rect(self.surface,color1,(self.width-(self.width-20),self.height-(self.height-(self.height/16)),self.width/3.2,self.height/42))
+		pygame.draw.rect(self.surface,color2,(self.width-(self.width-20),self.height-(self.height-(self.height/16)),mana/(maxmana/(self.width/3.2)),self.height/42))
 	
 	def coins(self,coins,color,img):
 		affiche_coins = self.font.render(str(coins),True,color)
