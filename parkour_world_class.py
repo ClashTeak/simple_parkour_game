@@ -1,21 +1,10 @@
 import pygame, sys , os , random
 from pygame.locals import *
 from math import cos,sin,pi
-
+from parkour_world_settings import *
 
 pygame.init()
-
-WIN_WIDTH = 800
-WIN_HEIGHT = 640
-HALF_WIDTH = int(WIN_WIDTH / 2)
-HALF_HEIGHT = int(WIN_HEIGHT / 2)
-
-DISPLAY = (WIN_WIDTH, WIN_HEIGHT)
-DEPTH = 32
-FLAGS = 0
-CAMERA_SLACK = 30
-
-
+            
 
 class Entity(pygame.sprite.Sprite):
     def __init__(self):
@@ -54,33 +43,62 @@ def complex_camera(camera, target_rect):
     return Rect(l, t, w, h)
     
 
+class HUD(object):
+	
+	def __init__(self,width,heigth,surface,font):
+		self.surface = surface
+		self.width = width
+		self.height = heigth
+		self.font = font
+	
+	def health_bar(self,color1,color2,hp,maxhp):
+		pygame.draw.rect(self.surface,color1,(self.width-(self.width-20),self.height-(self.height-15),self.width/3.2,self.height/42))
+		pygame.draw.rect(self.surface,color2,(self.width-(self.width-20),self.height-(self.height-15),hp/(maxhp/(self.width/3.2)),self.height/42))
+	
+	def mana_bar(self,color1,color2,mana,maxmana):
+		pygame.draw.rect(self.surface,color1,(self.width-(self.width-20),self.height-(self.height-40),self.width/3.2,self.height/42))
+		pygame.draw.rect(self.surface,color2,(self.width-(self.width-20),self.height-(self.height-40),mana/(maxmana/(self.width/3.2)),self.height/42))
+	
+	def coins(self,coins,color,img):
+		affiche_coins = self.font.render(str(coins),True,color)
+		self.surface.blit(affiche_coins,(self.width-75,self.height/64))
+		self.surface.blit(img,(self.width-40,self.height/32))
 
 
 #PLAYER CLASS
 class Player(Entity):
-	def __init__(self, x, y,size):
+	def __init__(self, x, y,sizex,sizey):
 		Entity.__init__(self)
 		self.xvel = 0
 		self.yvel = 0
+		self.speed = 4
 		self.coins = 0
+		self.max_mana = 100
+		self.mana = self.max_mana
+		self.can_sprint = True
+		self.max_hp = 100
+		self.hp = self.max_hp
 		self.onGround = False
-		self.image = pygame.Surface((size,size))
+		self.image = pygame.Surface((sizex,sizey))
 		self.image.fill(Color("#0000FF"))
 		self.image.convert()
-		self.rect = Rect(x, y, size, size)
+		self.rect = Rect(x, y, sizex, sizey)
+		self.jumpForce = 8
 
-	def update(self, up, down, left, right, running, platforms):
+	def update(self, up, down, left, right, running, platforms,coins):
+		if self.mana < 1:
+			running = False
+			self.speed = 4
+			self.can_sprint = False
 		if up:
 			# only jump if on the ground
-			if self.onGround: self.yvel -= 8
+			if self.onGround: self.yvel -= self.jumpForce
 		if down:
 			pass
-		if running:
-			self.xvel = 12
 		if left:
-			self.xvel = -5
+			self.xvel = -self.speed
 		if right:
-			self.xvel = 5
+			self.xvel = self.speed
 		if not self.onGround:
 			# only accelerate with gravity if in the air
 			self.yvel += 0.3
@@ -88,18 +106,38 @@ class Player(Entity):
 			if self.yvel > 100: self.yvel = 100
 		if not(left or right):
 			self.xvel = 0
+		if self.can_sprint == False:
+			running = False
+		if running:
+			if self.can_sprint:
+				self.speed = 7
+				if left or right:
+					if self.mana > 1:
+						self.mana -= 0.6
+		if not running:
+			self.speed = 4
+			if self.mana < self.max_mana:
+				self.mana += 0.4
+			else:
+				if self.can_sprint == False:
+					self.can_sprint = True
+			
 		# increment in x direction
 		self.rect.left += self.xvel
 		# do x-axis collisions
-		self.collide(self.xvel, 0, platforms)
+		self.collide(self.xvel, 0, platforms,coins)
 		# increment in y direction
 		self.rect.top += self.yvel
 		# assuming we're in the air
 		self.onGround = False;
 		# do y-axis collisions
-		self.collide(0, self.yvel, platforms)
+		self.collide(0, self.yvel, platforms,coins)
 		
-	def collide(self, xvel, yvel, colliders):
+		if self.hp < 0:
+			pygame.quit()
+			sys.exit()
+		
+	def collide(self, xvel, yvel, colliders,coins):
 		for p in colliders:
 			if pygame.sprite.collide_rect(self, p):
 				if p.name == "block":
@@ -115,8 +153,10 @@ class Player(Entity):
 						self.rect.top = p.rect.bottom
 				elif p.name == "coin":
 					self.coins += 1
+					coins.remove(p)
 					colliders.remove(p)
-                    
+				elif p.name == "lava":
+					self.hp -= 0.5
 
 
 
@@ -134,26 +174,25 @@ class Block(Entity):
 
 
 #World Manager
-class Niveau:
+class WorldManager:
 	"""Classe permettant de créer un niveau"""
 	
-	def __init__(self, fichier,tex):
-		self.fichier = fichier
+	def __init__(self,tex,bg_tex):
 		self.structure = 0
 		
 		self.textures = tex
+		self.bg_textures = bg_tex
 		
 		self.taille_sprite = 25
+		self.level = 1
 		
 		self.world_block = []
+		self.world_background_block = []
 		
-	def read(self):
-		""" Méthode permettant de lire 
-		le niveau en fonction du fichier.
-		On crée une liste générale, contenant une liste par ligne 
-		à afficher
-		"""
-		with open(self.fichier, "r") as fichier:
+		self.try_collide = []
+	
+	def read(self,f):
+		with open(f, "r") as fichier:
 			structure_niveau = []
 			#self.array_world = fichier.read()
 			for ligne in fichier:
@@ -165,7 +204,31 @@ class Niveau:
 			self.structure = structure_niveau
 	
 	
-	def afficher(self):
+	def generate(self,f,f_background):
+		""" Méthode permettant de lire 
+		le niveau en fonction du fichier.
+		On crée une liste générale, contenant une liste par ligne 
+		à afficher
+		"""
+		self.read(f)
+		self.draw(self.world_block,self.textures)
+		self.read(f_background)
+		self.draw(self.world_background_block,self.bg_textures)
+	
+	def update(self,target):
+		for b in self.world_block:
+			if b.rect.x < target.rect.x + 70 and b.rect.x > target.rect.x - 70:
+				if b.rect.y < target.rect.y + 70 and b.rect.y > target.rect.y - 70:
+					if b not in self.try_collide:
+						self.try_collide.append(b)
+				else:
+					if b in self.try_collide:
+						self.try_collide.remove(b)
+			else:
+					if b in self.try_collide:
+						self.try_collide.remove(b)
+	
+	def draw(self,l,textures):
 		"""Méthode permettant d'afficher le niveau en fonction 
 		de la liste de structure renvoyée par generer()
 		"""
@@ -178,13 +241,19 @@ class Niveau:
 				#On calcule la position réelle en pixels
 				x = num_case * self.taille_sprite
 				y = num_ligne * self.taille_sprite
-				if sprite == '1':		   
-					self.world_block.append(Block(x,y,self.textures[0],self.taille_sprite,"block"))
+				if sprite == '0':	
+					l.append(Block(x,y,textures[int(sprite)],self.taille_sprite,"block"))
+				if sprite == '1':
+					l.append(Block(x,y,textures[int(sprite)],self.taille_sprite,"block"))
 				if sprite == '2':
-					self.world_block.append(Block(x,y,self.textures[1],self.taille_sprite,"block"))
+					l.append(Block(x,y,textures[int(sprite)],self.taille_sprite,"block"))
 				if sprite == '3':
-					self.world_block.append(Block(x,y,self.textures[2],self.taille_sprite,"block"))
+					l.append(Block(x,y,textures[int(sprite)],self.taille_sprite,"block"))
 				if sprite == 'c':
-					self.world_block.append(Block(x,y,self.textures[3],self.taille_sprite,"coin"))
+					l.append(Block(x,y,textures[4],self.taille_sprite,"coin"))
+				if sprite == 'l':
+					l.append(Block(x,y,textures[5],self.taille_sprite,"lava"))
 				num_case += 1
 			num_ligne += 1
+
+
