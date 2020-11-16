@@ -1,2 +1,3 @@
 # simple_parkour_game
-This is a simple parkour game project with python and pygame
+This is a simple platformer project made with python and pygame.
+## /!\ DISCONTINUED /!\
